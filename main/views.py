@@ -3,6 +3,7 @@ from django.http import HttpResponse,JsonResponse
 from django.conf import settings
 import os
 from django.core.files.storage import FileSystemStorage
+import json
 
 import pytesseract
 from pdf2image import convert_from_path
@@ -11,10 +12,12 @@ from pdf2image import convert_from_path
 import cv2
 import numpy as np
 from PIL import Image
+from concurrent.futures import ThreadPoolExecutor
 
 # for pdf to text
 import pytesseract
 from pdf2image import convert_from_path
+import fitz
 
 # for language translation and speech translation
 from googletrans import Translator
@@ -22,16 +25,21 @@ from gtts import gTTS
 
 ################################################ functions ################################################
 
-def text_to_speech(text):
-    tts = gTTS(text=text, lang='ta',slow=False)
-    tts.save(f'{text}.mp3')
+def generate_speech(text, language):
+    filename = 'voice.mp3'
+    file_path = os.path.join(settings.MEDIA_ROOT, filename)
+
+    tts = gTTS(text=text, lang=language, slow=False)
+    tts.save(file_path)
+
+    return filename
 
 
 
 def translate_text(text,language):
     translator = Translator()
     result = translator.translate(text, dest=language)
-    text_to_speech(result.text)
+    # generate_speech(result.text)
     print(result.text)
     return result.text
 
@@ -42,30 +50,15 @@ def translate_text(text,language):
 
 # print(extract_text("Scanned Page.pdf"))
 
+def extract_text_from_pdf(pdf_filename):
+    # Construct the full path to the PDF in media/uploads
+    pdf_path = os.path.join(settings.BASE_DIR, 'media', 'uploads', pdf_filename)
 
-def extract_text(pdf_path):
-    images=convert_from_path(pdf_path)
-    for i,img in enumerate(images):
-        img_path=f"E:\DJango Projects\LegalAI\images\img_{i+1}.png"
-        img.save(img_path,"PNG")
-        print(f"Extracted: {img_path}")
-    # for image in images:
-        img=cv2.imread(img_path)
-        gray=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-        # cv2.imwrite(f"test_{i+1}.png",gray)
-        contrast=cv2.createCLAHE(clipLimit=2.0,tileGridSize=(8,8))
-        contrast_img=contrast.apply(gray)
-        
-        blurred=cv2.GaussianBlur(contrast_img,(5,5),0)
-
-        _,binary=cv2.threshold(blurred,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        cv2.imwrite(f"finalimg_{i+1}.png",binary)
-        text="\n".join([pytesseract.image_to_string(binary,config="--psm 6 --oem 3")])
-        print(text)
-    
-
-
-print(extract_text("E:\DJango Projects\LegalAI\\test1.pdf"))
+    text = ""
+    doc = fitz.open(pdf_path)  # Open the PDF
+    for page in doc:
+        text += page.get_text("text") + "\n"  # Extract text
+    return text
 
 ################################################## views ###################################################
 
@@ -91,10 +84,28 @@ def analyze(request):
         # Get the full path of the saved file
         saved_file_url = fs.url(os.path.join('uploads', filename))
 
-        print("Saved PDF Path:", saved_file_url)
-        print("Selected Language:", language)
+        # Extract text from the PDF
+        extracted_text = extract_text_from_pdf(filename)
+        translated_text = translate_text(extracted_text,language)
 
-        return render(request, 'analyze.html', {'pdf_path': saved_file_url, 'language': language})
+        return render(request, 'analyze.html',{
+            'extracted_text': extracted_text,
+            'translated_text': translated_text,
+        })
 
     return render(request, 'analyze.html')
     
+def text_to_speech(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        text = data.get('text')
+        language = data.get('language')
+
+        audio_path = generate_speech(text, language)
+
+        # Construct file URL
+        file_url = request.build_absolute_uri(settings.MEDIA_URL + audio_path)
+
+        return JsonResponse({'success': True, 'voice_url': file_url})
+
+    return JsonResponse({'success': False, 'message': 'Invalid request'})

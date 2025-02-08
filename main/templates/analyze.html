@@ -8,11 +8,60 @@
 <body>
 
     <h2>Extracted Text</h2>
-    <p>{{ extracted_text }}</p>
+    <p class="extracted_text">{{ extracted_text }}</p>
     
 
     <h2>Translated Text</h2>
-    <p>{{ translated_text }}</p>
+    <p class="translated_text">{{ translated_text }}</p>
+
+    <form>
+        <button class="audio_button">Audio</button>
+        <select class="language" name="language" id="language">
+            <option value="mr">Marathi</option>
+            <option value="ta">Tamil</option>
+            <option value="hi">Hindi</option>
+            <option value="kn">Kannada</option>
+            <option value="te">Telugu</option>
+            <option value="gu">Gujarati</option>
+            <option value="bn">Bengali</option>
+            <option value="pa">Punjabi</option>
+            <option value="en">English</option>
+        </select>
+    </form>
+
+    <audio class="audio_player" controls></audio>
+
+    <script>
+        const audioButton = document.querySelector('.audio_button');
+        const audioPlayer = document.querySelector('.audio_player');
+
+        audioButton.addEventListener('click', async (e) => {
+            e.preventDefault(); 
+            const text = document.querySelector('.translated_text').textContent;
+            const language = document.querySelector('.language').value;
+
+            fetch("{% url 'text_to_speech' %}", {  // Ensure 'text_to_speech' is the correct URL name
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}',
+    },
+    body: JSON.stringify({"text": text, "language": language}),
+})
+.then(response => response.json())  // This will fail if response is HTML
+.then(data => {
+    console.log(data);
+    if (data.voice_url) {
+        audioPlayer.src = data.voice_url;
+        audioPlayer.play();
+    } else {
+        alert("Error: Audio file not received");
+    }
+})
+.catch(error => console.error('Error:', error));
+
+        });
+    </script>
     
 </body>
 </html>
