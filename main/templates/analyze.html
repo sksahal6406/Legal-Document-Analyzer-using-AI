@@ -39,6 +39,7 @@
             e.preventDefault(); 
             const text = document.querySelector('.translated_text').textContent;
             const language = document.querySelector('.language').value;
+            console.log(text, language);
 
             fetch("{% url 'text_to_speech' %}", {  // Ensure 'text_to_speech' is the correct URL name
     method: 'POST',
