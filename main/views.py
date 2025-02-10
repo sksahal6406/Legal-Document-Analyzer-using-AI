@@ -32,8 +32,8 @@ import groq
 def generate_speech(text, language):
     filename = 'voice.mp3'
     file_path = os.path.join(settings.MEDIA_ROOT, filename)
-
-    tts = gTTS(text=text, lang=language, slow=False)
+    translated_text = translate_text(text, language)
+    tts = gTTS(text=translated_text, lang=language, slow=False)
     tts.save(file_path)
 
     return filename
@@ -74,8 +74,8 @@ def optimize_text_using_groq(text):
     response = client.chat.completions.create(
         model="llama3-8b-8192",  # Ensure this model is valid
         messages=[
-            {"role": "system", "content": "You are a helpful assistant, that optimizes text."},
-            {"role": "user", "content": text},
+            {"role": "system", "content": "you are an english expert assistant, profficient in english."},
+            {"role": "user", "content": f'correct all the errors in this text and remove bold, italics and underlines styles from the characters,and in the result just provide me the resultant text without any other text also give the text in the same formate as the input text{text}'},
         ]
     )
 
@@ -120,7 +120,7 @@ def analyze(request):
 
 
         return render(request, 'analyze.html', {
-            'extracted_text': extracted_text,
+            'extracted_text': optimized_text,
             'translated_text': translated_text,
         })
 
