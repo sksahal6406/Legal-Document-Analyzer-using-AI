@@ -1,5 +1,9 @@
 from django.shortcuts import render
 from django.http import HttpResponse,JsonResponse
+from django.conf import settings
+import os
+from django.core.files.storage import FileSystemStorage
+import json
 
 import pytesseract
 from pdf2image import convert_from_path
@@ -8,6 +12,12 @@ from pdf2image import convert_from_path
 import cv2
 import numpy as np
 from PIL import Image
+from concurrent.futures import ThreadPoolExecutor
+
+# for pdf to text
+import pytesseract
+from pdf2image import convert_from_path
+import fitz
 import easyocr
 import torch
 
@@ -17,49 +27,40 @@ from gtts import gTTS
 
 ################################################ functions ################################################
 
-def text_to_speech(text):
-    tts = gTTS(text=text, lang='ta',slow=False)
-    tts.save(f'{text}.mp3')
+def generate_speech(text, language):
+    filename = 'voice.mp3'
+    file_path = os.path.join(settings.MEDIA_ROOT, filename)
+
+    tts = gTTS(text=text, lang=language, slow=False)
+    tts.save(file_path)
+
+    return filename
 
 
 
 def translate_text(text,language):
     translator = Translator()
     result = translator.translate(text, dest=language)
-    text_to_speech(result.text)
+    # generate_speech(result.text)
     print(result.text)
     return result.text
 
+# def extract_text(pdf_path):
+#     images=convert_from_path(pdf_path)
+#     text="\n".join([pytesseract.image_to_string(image) for image in images])
+#     return text
 
-def extract_text(pdf_path):
-    
-    images=convert_from_path(pdf_path)
-    for i,img in enumerate(images):
-        img_path=f"E:\DJango Projects\LegalAI\images\img_{i+1}.png"
-        img.save(img_path,"PNG")
-    #     print(f"Extracted: {img_path}")
-    # # for image in images:
-    #     dpi = img.info.get("dpi")
-    #     img=cv2.imread(img_path,dpi)
-    #     gray=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    #     # cv2.imwrite(f"test_{i+1}.png",gray)
-    #     contrast=cv2.createCLAHE(clipLimit=2.0,tileGridSize=(8,8))
-    #     contrast_img=contrast.apply(gray)
-        
-    #     blurred=cv2.GaussianBlur(contrast_img,(5,5),0)
+# print(extract_text("Scanned Page.pdf"))
 
-    #     _,binary=cv2.threshold(blurred,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        reader=easyocr.Reader(['mr'])
-        # cv2.imwrite(img,binary)
-        texts=reader.readtext(img_path,detail=0)
-        for text in texts:
-            print(text)
-    #     text="\n".join([pytesseract.image_to_string(binary,config="--psm 6 --oem 3")])
-    #     print(text)
-    
+def extract_text_from_pdf(pdf_filename):
+    # Construct the full path to the PDF in media/uploads
+    pdf_path = os.path.join(settings.BASE_DIR, 'media', 'uploads', pdf_filename)
 
-
-print(extract_text("E:\DJango Projects\LegalAI\\rent.pdf"))
+    text = ""
+    doc = fitz.open(pdf_path)  # Open the PDF
+    for page in doc:
+        text += page.get_text("text") + "\n"  # Extract text
+    return text
 
 ################################################## views ###################################################
 
@@ -68,9 +69,45 @@ def index(request):
     return render(request, 'index.html')
 
 def analyze(request):
-    extract_text = "my name is sanket"
-    translated_text = "hello world"
-    translate_text(extract_text,'ta')
- 
-    return render(request, 'analyze.html', {'extracted_text':extract_text,'translated_text':translated_text})
+    if request.method == 'POST' and request.FILES.get('pdf_file'):
+        pdf_file = request.FILES['pdf_file']  # Get the uploaded file
+        language = request.POST['language']   # Get the selected language
+
+        # Define the folder where the PDF will be stored
+        upload_folder = os.path.join(settings.MEDIA_ROOT, 'uploads')
+
+        # Create the folder if it doesn’t exist
+        os.makedirs(upload_folder, exist_ok=True)
+
+        # Save the file inside the "uploads" folder
+        fs = FileSystemStorage(location=upload_folder)
+        filename = fs.save(pdf_file.name, pdf_file)
+
+        # Get the full path of the saved file
+        saved_file_url = fs.url(os.path.join('uploads', filename))
+
+        # Extract text from the PDF
+        extracted_text = extract_text_from_pdf(filename)
+        translated_text = translate_text(extracted_text,language)
+
+        return render(request, 'analyze.html',{
+            'extracted_text': extracted_text,
+            'translated_text': translated_text,
+        })
+
+    return render(request, 'analyze.html')
     
+def text_to_speech(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        text = data.get('text')
+        language = data.get('language')
+
+        audio_path = generate_speech(text, language)
+
+        # Construct file URL
+        file_url = request.build_absolute_uri(settings.MEDIA_URL + audio_path)
+
+        return JsonResponse({'success': True, 'voice_url': file_url})
+
+    return JsonResponse({'success': False, 'message': 'Invalid request'})
