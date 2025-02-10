@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import HttpResponse,JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 import os
 from django.core.files.storage import FileSystemStorage
@@ -8,7 +8,7 @@ import json
 import pytesseract
 from pdf2image import convert_from_path
 
-#for Image Proccessing
+# for Image Processing
 import cv2
 import numpy as np
 from PIL import Image
@@ -20,8 +20,10 @@ from pdf2image import convert_from_path
 import fitz
 
 # for language translation and speech translation
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 from gtts import gTTS
+import groq
+
 
 ################################################ functions ################################################
 
@@ -35,17 +37,16 @@ def generate_speech(text, language):
     return filename
 
 
+def translate_text(text, language):
+    translator = GoogleTranslator(source='auto', target=language)
+    result = translator.translate(text)
+    print(result)
+    return result
 
-def translate_text(text,language):
-    translator = Translator()
-    result = translator.translate(text, dest=language)
-    # generate_speech(result.text)
-    print(result.text)
-    return result.text
 
 # def extract_text(pdf_path):
-#     images=convert_from_path(pdf_path)
-#     text="\n".join([pytesseract.image_to_string(image) for image in images])
+#     images = convert_from_path(pdf_path)
+#     text = "\n".join([pytesseract.image_to_string(image) for image in images])
 #     return text
 
 # print(extract_text("Scanned Page.pdf"))
@@ -60,11 +61,36 @@ def extract_text_from_pdf(pdf_filename):
         text += page.get_text("text") + "\n"  # Extract text
     return text
 
+
+import groq
+
+def optimize_text_using_groq(text):
+    # Initialize the Groq Client correctly
+    client = groq.Client(api_key="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")
+
+    # Make a request to the completions API
+    response = client.chat.completions.create(
+        model="llama3-8b-8192",  # Ensure this model is valid
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant, that optimizes text."},
+            {"role": "user", "content": text},
+        ]
+    )
+
+    # Extract the optimized text from the response
+    optimized_text = response.choices[0].message.content
+    return optimized_text
+
+
+
+
+
 ################################################## views ###################################################
 
 # Create your views here.
 def index(request):
     return render(request, 'index.html')
+
 
 def analyze(request):
     if request.method == 'POST' and request.FILES.get('pdf_file'):
@@ -86,20 +112,25 @@ def analyze(request):
 
         # Extract text from the PDF
         extracted_text = extract_text_from_pdf(filename)
-        translated_text = translate_text(extracted_text,language)
+        optimized_text = optimize_text_using_groq(extracted_text)
+        print("optimized_text"+optimized_text)
+        translated_text = translate_text(optimized_text, language)
 
-        return render(request, 'analyze.html',{
+
+        return render(request, 'analyze.html', {
             'extracted_text': extracted_text,
             'translated_text': translated_text,
         })
 
     return render(request, 'analyze.html')
-    
+
+
 def text_to_speech(request):
     if request.method == 'POST':
         data = json.loads(request.body)
         text = data.get('text')
         language = data.get('language')
+        print(text + "\n\n\n\n" + language)
 
         audio_path = generate_speech(text, language)
 
