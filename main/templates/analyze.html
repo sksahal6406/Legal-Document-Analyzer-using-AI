@@ -10,7 +10,7 @@
 <body>
 
     <h2>Extracted Text</h2>
-    <p class="extracted_text">{{ extracted_text }}</p>
+    <p class="extracted_text" id="extract_text">{{ extracted_text }}</p>
     
 
     <h2>Translated Text</h2>
@@ -34,37 +34,70 @@
     <audio class="audio_player" controls></audio>
 
 
+    <!-- Prompt Box -->
+    <h2>Ask Your Doubts</h2>
+    <textarea id="prompt_box" rows="4" cols="50" placeholder="Enter text here..."></textarea>
+    <button id="translate_button">Submit</button>
+    
+    <!-- Result Box -->
+    <h2>Result</h2>
+    <p id="result_box"></p>
+
     <script>
         const audioButton = document.querySelector('.audio_button');
         const audioPlayer = document.querySelector('.audio_player');
-
+        const translateButton = document.querySelector('#translate_button');
+        const promptBox = document.querySelector('#prompt_box');
+        const resultBox = document.querySelector('#result_box');
+        const textbox=document.getElementById("extract_text")
+        
         audioButton.addEventListener('click', async (e) => {
             e.preventDefault(); 
             const text = document.querySelector('.translated_text').textContent;
             const language = document.querySelector('.language').value;
-            console.log(text, language);
-
-            fetch("{% url 'text_to_speech' %}", {  // Ensure 'text_to_speech' is the correct URL name
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': '{{ csrf_token }}',
-    },
-    body: JSON.stringify({"text": text, "language": language}),
-})
-.then(response => response.json())  // This will fail if response is HTML
-.then(data => {
-    console.log(data);
-    if (data.voice_url) {
-        audioPlayer.src = data.voice_url;
-        audioPlayer.play();
-    } else {
-        alert("Error: Audio file not received");
-    }
-})
-.catch(error => console.error('Error:', error));
-
+            
+            fetch("{% url 'text_to_speech' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: JSON.stringify({"text": text, "language": language}),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.voice_url) {
+                    audioPlayer.src = data.voice_url;
+                    audioPlayer.play();
+                } else {
+                    alert("Error: Audio file not received");
+                }
+            })
+            .catch(error => console.error('Error:', error));
         });
+
+        translateButton.addEventListener('click',async(e)=>{
+            e.preventDefault()
+            text=promptBox.value
+            <!-- console.log(text) -->
+            fetch("{% url 'ask_prompt'%}",{
+                method: "POST",
+                headers:{
+                    "Content_Type":'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body:JSON.stringify({"text":text,"opt_text":textbox.innerHTML})
+            })
+            .then(response=>response.json())
+            .then(data=>{
+                if(data){
+                    console.log(data["Response"])
+                    resultBox.innerHTML=data["Response"]
+                }
+            })
+
+
+        })
     </script>
     
 </body>

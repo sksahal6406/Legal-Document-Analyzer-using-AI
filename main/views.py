@@ -18,6 +18,8 @@ from concurrent.futures import ThreadPoolExecutor
 import pytesseract
 from pdf2image import convert_from_path
 import fitz
+import easyocr
+import torch
 
 # for language translation and speech translation
 from deep_translator import GoogleTranslator
@@ -140,3 +142,20 @@ def text_to_speech(request):
         return JsonResponse({'success': True, 'voice_url': file_url})
 
     return JsonResponse({'success': False, 'message': 'Invalid request'})
+ 
+def ask_prompt(request):
+    client=groq.Client(api_key="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")
+    data=json.loads(request.body)
+    text=data.get('text')
+    opt_text=data.get('opt_text')
+    print("heello"+text)
+    response=client.chat.completions.create(
+        model="llama3-8b-8192",
+        messages=[
+            {"role": "system", "content": f"You Are A Good Indian Lawyer, Well Educated about Indian Law. The Text Is {opt_text} Answer any questions regarding this "},
+            {"role": "user", "content": text},
+        ]
+        
+    )
+    output=response.choices[0].message.content
+    return JsonResponse({"Response":output})
