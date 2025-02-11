@@ -1,9 +1,11 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Translate</title>
+    <link rel="stylesheet" href="{% static 'css/analyze.css' %}">
 </head>
 <body>
 
@@ -30,6 +32,7 @@
     </form>
 
     <audio class="audio_player" controls></audio>
+
 
     <script>
         const audioButton = document.querySelector('.audio_button');

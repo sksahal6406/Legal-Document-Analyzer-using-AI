@@ -73,7 +73,7 @@ def optimize_text_using_groq(text):
         model="llama3-8b-8192",  # Ensure this model is valid
         messages=[
             {"role": "system", "content": "you are an english expert assistant, profficient in english."},
-            {"role": "user", "content": f'correct all the errors in this text and remove bold, italics and underlines styles from the characters,and in the result just provide me the resultant text without any other text also give the text in the same formate as the input text{text}'},
+            {"role": "user", "content": f'correct all the errors in this text and remove bold, italics and underlines styles from the characters,and in the result just provide me the resultant text dont include anything else also give the text in the same formate as the input text{text}'},
         ]
     )
 
