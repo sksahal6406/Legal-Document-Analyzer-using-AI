@@ -8,6 +8,7 @@ urlpatterns = [
     path('analyze/', views.analyze, name='analyze'),
     # path('/', views.analyze, name='analyze'),
     path('text_to_speech/', views.text_to_speech, name='text_to_speech'),
+    path("prompt/",views.ask_prompt,name="ask_prompt")
 ]
 
 if settings.DEBUG:
