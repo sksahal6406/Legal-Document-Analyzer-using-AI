@@ -37,16 +37,18 @@
     <!-- Prompt Box -->
     <h2>Ask Your Doubts</h2>
     <textarea id="prompt_box" rows="4" cols="50" placeholder="Enter text here..."></textarea>
-    <button id="translate_button">Submit</button>
+    <button id="prompt_button">Submit</button>
     
     <!-- Result Box -->
     <h2>Result</h2>
+    <button class="legal_ambiguity_button">Check Legality and Ambiguity</button>
+    <button class="get_sections">Provide Sections in this Legal Document</button>
     <p id="result_box"></p>
 
     <script>
         const audioButton = document.querySelector('.audio_button');
         const audioPlayer = document.querySelector('.audio_player');
-        const translateButton = document.querySelector('#translate_button');
+        const prompt_button = document.querySelector('#prompt_button');
         const promptBox = document.querySelector('#prompt_box');
         const resultBox = document.querySelector('#result_box');
         const textbox=document.getElementById("extract_text")
@@ -76,7 +78,7 @@
             .catch(error => console.error('Error:', error));
         });
 
-        translateButton.addEventListener('click',async(e)=>{
+        prompt_button.addEventListener('click',async(e)=>{
             e.preventDefault()
             text=promptBox.value
             <!-- console.log(text) -->

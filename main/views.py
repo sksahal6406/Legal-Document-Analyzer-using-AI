@@ -25,6 +25,7 @@ import torch
 from deep_translator import GoogleTranslator
 from gtts import gTTS
 import groq
+import time
 
 
 ################################################ functions ################################################
@@ -40,6 +41,7 @@ def generate_speech(text, language):
 
 
 def translate_text(text, language):
+    time.sleep(3)
     translator = GoogleTranslator(source='auto', target=language)
     result = translator.translate(text)
     print(result)
@@ -135,6 +137,7 @@ def text_to_speech(request):
         print(text + "\n\n\n\n" + language)
 
         audio_path = generate_speech(text, language)
+        
 
         # Construct file URL
         file_url = request.build_absolute_uri(settings.MEDIA_URL + audio_path)
