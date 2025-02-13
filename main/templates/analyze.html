@@ -38,11 +38,19 @@
     <h2>Ask Your Doubts</h2>
     <textarea id="prompt_box" rows="4" cols="50" placeholder="Enter text here..."></textarea>
     <button id="prompt_button">Submit</button>
+
+    <!-- Audio Recorder -->
+    <h3>Record Audio</h3>
+    <button class="record_button">Start Recording</button>
+    <button class="stop_button" disabled>Stop Recording</button>
+    <audio class="audio_player2" controls></audio>
+    <a id="download_link" style="display: none;" download="recording_audio.wav">Download Audio</a>
     
     <!-- Result Box -->
     <h2>Result</h2>
     <button class="legal_ambiguity_button">Check Legality and Ambiguity</button>
     <button class="get_sections">Provide Sections in this Legal Document</button>
+
     <p id="result_box"></p>
 
     <script>
@@ -100,6 +108,74 @@
 
 
         })
+
+
+
+    let mediaRecorder;
+    let audioChunks = [];
+
+    const recordButton = document.querySelector(".record_button");
+    const stopButton = document.querySelector(".stop_button");
+    const audioPlayer2 = document.querySelector(".audio_player2");
+    const downloadLink = document.getElementById("download_link");
+
+    recordButton.addEventListener("click", () => {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+    const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+    const formData = new FormData();
+    formData.append("audio_file", audioBlob, "R1.wav");
+
+    fetch("{% url 'audio_to_text' %}", {
+        method: "POST",
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}', // Include CSRF token for security
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.transcription) {
+            console.log("Transcribed Text:", data.transcription);
+            promptBox.innerHTML=data.transcription;
+        } else {
+            alert("Error: Transcription failed");
+        }
+    })
+    .catch(error => console.error("Error:", error));
+    
+    // Update the audio player and download link
+    const audioURL = URL.createObjectURL(audioBlob);
+    audioPlayer2.src = audioURL;
+    downloadLink.href = audioURL;
+    downloadLink.style.display = "block";
+};
+
+            mediaRecorder.start();
+            recordButton.disabled = true;
+            stopButton.disabled = false;
+        }).catch(error => {
+            console.error("Error accessing microphone:", error);
+            alert("Microphone access denied or not available.");
+        });
+    });
+
+    stopButton.addEventListener("click", () => {
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+            mediaRecorder.stop();
+            recordButton.disabled = false;
+            stopButton.disabled = true;
+        }
+    });
+            
+
     </script>
     
 </body>

@@ -27,6 +27,10 @@ from gtts import gTTS
 import groq
 import time
 
+import speech_recognition as sr
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+
 
 ################################################ functions ################################################
 
@@ -66,7 +70,6 @@ def extract_text_from_pdf(pdf_filename):
     return text
 
 
-import groq
 
 def optimize_text_using_groq(text):
     # Initialize the Groq Client correctly
@@ -162,3 +165,58 @@ def ask_prompt(request):
     )
     output=response.choices[0].message.content
     return JsonResponse({"Response":output})
+
+
+import speech_recognition as sr
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from django.http import JsonResponse
+from pydub import AudioSegment
+import os
+
+def audio_to_text(request):
+    if request.method == 'POST' and request.FILES.get('audio_file'):
+        try:
+            # Get the uploaded file
+            audio_file = request.FILES['audio_file']
+            original_file_path = f'media/{audio_file.name}'
+            print(audio_file)
+            print(original_file_path)
+            path = default_storage.save(original_file_path, ContentFile(audio_file.read()))
+
+            # Convert to PCM WAV format with 16-bit sample width and 16kHz sample rate
+            # new_original_file_path = f'media/{original_file_path}'
+            converted_file_path = original_file_path.replace('.wav', '_converted.wav')
+            print(converted_file_path)
+            audio = AudioSegment.from_file(f'media/{original_file_path}')
+            audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
+            audio.export(f'media/{converted_file_path}', format="wav")
+
+            # Perform speech recognition
+            recognizer = sr.Recognizer()
+            with sr.AudioFile(f'media/{converted_file_path}') as source:
+                print("Recognizing...")
+                print(converted_file_path)
+                audio_data = recognizer.record(source)
+                transcription = recognizer.recognize_google(audio_data)
+                
+
+            # Clean up temporary files
+            os.remove(f'media/{original_file_path}')
+            os.remove(f'media/{converted_file_path}')
+
+            return JsonResponse({'transcription': transcription})
+
+        except sr.UnknownValueError:
+            return JsonResponse({'error': 'Speech recognition failed: Could not understand the audio'})
+        except sr.RequestError as e:
+            return JsonResponse({'error': f'Error occurred during speech recognition: {e}'})
+        except Exception as e:
+            return JsonResponse({'error': f'An error occurred: {str(e)}'})
+
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+
+
+        
