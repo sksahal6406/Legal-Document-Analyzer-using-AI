@@ -150,21 +150,38 @@ def text_to_speech(request):
     return JsonResponse({'success': False, 'message': 'Invalid request'})
  
 def ask_prompt(request):
-    client=groq.Client(api_key="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")
-    data=json.loads(request.body)
-    text=data.get('text')
-    opt_text=data.get('opt_text')
-    print("heello"+text)
-    response=client.chat.completions.create(
-        model="llama3-8b-8192",
-        messages=[
-            {"role": "system", "content": f"You Are A Good Indian Lawyer, Well Educated about Indian Law. The Text Is {opt_text} Answer any questions regarding this "},
-            {"role": "user", "content": text},
-        ]
+    if request.method=="POST":
         
-    )
-    output=response.choices[0].message.content
-    return JsonResponse({"Response":output})
+        client=groq.Client(api_key="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")
+        data=json.loads(request.body)
+        ptype=data.get("type")
+        opt_text=data.get('opt_text')
+        print(ptype)
+        if(ptype=="Mannual"):
+            text=data.get('text')
+            print("heello"+text)
+            
+        elif(ptype=="Legality"):
+            text="Check For The Legality Of The Text and Also Provide the Possible Ambiguities. Give the points in html list tags. If It Doesnt Then Just Gives the output as None and nothing else "
+            
+        elif(ptype=="Sections"):
+            
+            text="List Out All The Sections and Laws this text pertains to. List Out The Sections in HTML LIST Tags. If It Does Not then simple give the output as None and nothing else"
+            
+        elif(ptype=="Errors"):
+            text="Check The Text For Any Grammatical Errors In the text and list them in HTML List Tags and if there are none then just give the output as none "    
+            
+        response=client.chat.completions.create(
+            model="llama3-8b-8192",
+
+            messages=[
+                {"role": "system", "content": f"You Are A Good Indian Lawyer, Well Educated about Indian Law. The Text Is {opt_text} Answer any questions regarding this. In The Output There Should be no Unecesarry Text From You Except What is asked"},
+                {"role": "user", "content": text},
+            ]
+
+        )
+        output=response.choices[0].message.content
+        return JsonResponse({"Response":output})
 
 
 import speech_recognition as sr

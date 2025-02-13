@@ -48,8 +48,9 @@
     
     <!-- Result Box -->
     <h2>Result</h2>
-    <button class="legal_ambiguity_button">Check Legality and Ambiguity</button>
-    <button class="get_sections">Provide Sections in this Legal Document</button>
+    <button class="prompt" value="Legality">Check for Legality and Ambiguity</button>
+    <button class="prompt" value="Sections">Get The Sections The Document Pertains To</button>
+    <button class="prompt" value="Errors">Check For Errors</button>
 
     <p id="result_box"></p>
 
@@ -61,6 +62,8 @@
         const resultBox = document.querySelector('#result_box');
         const textbox=document.getElementById("extract_text")
         
+        const pbutton=document.querySelectorAll(".prompt")
+        console.log(pbutton)
         audioButton.addEventListener('click', async (e) => {
             e.preventDefault(); 
             const text = document.querySelector('.translated_text').textContent;
@@ -89,14 +92,14 @@
         prompt_button.addEventListener('click',async(e)=>{
             e.preventDefault()
             text=promptBox.value
-            <!-- console.log(text) -->
+        
             fetch("{% url 'ask_prompt'%}",{
                 method: "POST",
                 headers:{
                     "Content_Type":'application/json',
                     'X-CSRFToken': '{{ csrf_token }}',
                 },
-                body:JSON.stringify({"text":text,"opt_text":textbox.innerHTML})
+                body:JSON.stringify({"text":text,"opt_text":textbox.innerHTML,"type":"Mannual"})
             })
             .then(response=>response.json())
             .then(data=>{
@@ -106,6 +109,31 @@
                 }
             })
 
+
+        })
+        pbutton.forEach(button=>{
+            button.addEventListener("click",function(){
+
+                const btnvalue=button.value
+                <!-- console.log("pressed") -->
+                console.log(btnvalue)
+                fetch("{% url 'ask_prompt'%}",{
+                    method:"POST",
+                    headers:{
+                        "Content_Type":"application/json",
+                        'X-CSRFToken': '{{ csrf_token }}',
+
+                    },
+                    body:JSON.stringify({"type":btnvalue,"opt_text":textbox.innerHTML})
+                })
+                .then(response=>response.json())
+                .then(data=>{
+                    if(data){
+                        console.log(data["Response"])
+                        resultBox.innerHTML=data["Response"]
+                    }
+                })
+            })
 
         })
 
