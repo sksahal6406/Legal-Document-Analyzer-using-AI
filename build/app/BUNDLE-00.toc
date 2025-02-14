@@ -1,0 +1,4 @@
+([('app',
+   '/Users/sanketpatel/Desktop/Legal Doc '
+   'Analyzer/Legal_Doc_Analyzer_usingAI/dist/app',
+   'EXECUTABLE')],)

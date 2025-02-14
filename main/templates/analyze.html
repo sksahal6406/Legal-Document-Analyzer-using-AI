@@ -16,6 +16,9 @@
     <h2>Translated Text</h2>
     <p class="translated_text">{{ translated_text }}</p>
 
+    <h2>Summary</h2>
+    <p class="summary_text">{{summary_text}}</p>
+
     <form>
         <button class="audio_button">Audio</button>
         <select class="language" name="language" id="language">
@@ -171,8 +174,9 @@
     .then(response => response.json())
     .then(data => {
         if (data.transcription) {
+            promptBox.value = null;
             console.log("Transcribed Text:", data.transcription);
-            promptBox.innerHTML=data.transcription;
+            promptBox.value=data.transcription;
         } else {
             alert("Error: Transcription failed");
         }

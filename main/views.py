@@ -90,6 +90,20 @@ def optimize_text_using_groq(text):
 
 
 
+def generate_summary(text):
+    client = groq.Client(api_key="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")
+
+    response = client.chat.completions.create(
+        model="llama3-8b-8192",
+        messages = [
+            {"role": "system", "content":""},
+            {"role": "user", "content": f"understand this text remove all bold italics and underline style and provie me the concise summary in easy human readable words, provide me the resultant plain text does not include anything else {text}"},
+
+        ]
+    )
+
+    summary_text = response.choices[0].message.content
+    return summary_text
 
 
 ################################################## views ###################################################
@@ -122,11 +136,14 @@ def analyze(request):
         optimized_text = optimize_text_using_groq(extracted_text)
         print("optimized_text"+optimized_text)
         translated_text = translate_text(optimized_text, language)
+        summary_text = generate_summary(optimized_text)
+        translated_summary = translate_text(summary_text,language)
 
 
         return render(request, 'analyze.html', {
             'extracted_text': optimized_text,
             'translated_text': translated_text,
+            'summary_text' : translated_summary
         })
 
     return render(request, 'analyze.html')
