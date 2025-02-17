@@ -69,7 +69,7 @@
         console.log(pbutton)
         audioButton.addEventListener('click', async (e) => {
             e.preventDefault(); 
-            const text = document.querySelector('.translated_text').textContent;
+            const text = document.querySelector('.summary_text').textContent;
             const language = document.querySelector('.language').value;
             
             fetch("{% url 'text_to_speech' %}", {
