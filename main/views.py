@@ -4,10 +4,13 @@ from django.conf import settings
 import os
 from django.core.files.storage import FileSystemStorage
 import json
-
+from PIL import Image
 import fitz
 from deep_translator import GoogleTranslator
 from gtts import gTTS
+from google import genai
+from google.genai import types
+from pdf2image import convert_from_path
 import groq
 import time
 import speech_recognition as sr
@@ -53,9 +56,13 @@ def optimize_text_using_groq(text):
         ]
     )
     return response.choices[0].message.content
+    
+    
+
 
 
 def generate_summary(text):
+    client = groq.Client(api_key="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")
     client = groq.Client(api_key="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")
     response = client.chat.completions.create(
         model="llama3-8b-8192",
@@ -105,7 +112,8 @@ def text_to_speech(request):
 
 def ask_prompt(request):
     if request.method == "POST":
-        client = groq.Client(api_key="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")
+        # client = groq.Client(api_key="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")
+        client=genai.Client(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
         data = json.loads(request.body)
         ptype = data.get("type")
         opt_text = data.get('opt_text')
@@ -116,14 +124,30 @@ def ask_prompt(request):
             text = "List out all the relevant sections and laws in HTML list tags. If none, return 'None'."
         elif ptype == "Errors":
             text = "Check for grammatical errors and list them in HTML list tags. If none, return 'None'."
-        response = client.chat.completions.create(
-            model="llama3-8b-8192",
-            messages=[
-                {"role": "system", "content": f"You are an expert in Indian law. The text is {opt_text}."},
-                {"role": "user", "content": text},
-            ]
+        elif ptype=="Mannual":
+            text=data.get('text')
+        # response = client.chat.completions.create(
+        #     model="llama3-8b-8192",
+        #     messages=[
+        #         {"role": "system", "content": f"You are an expert in Indian law. The text is {opt_text}."},
+        #         {"role": "user", "content": text},
+        #     ]
+        # )
+        sys_msg=f'''You are an expert Indian lawyer, highly knowledgeable in the Indian Constitution, legal statutes, case laws, and judicial practices.Analyse This Data {opt_text} You provide accurate, well-reasoned, and precise legal responses based on the principles of Indian law. Your responses reflect a deep understanding of constitutional provisions, statutory interpretations, procedural laws, and judicial precedents.
+
+When answering questions, you ensure clarity, correctness, and legal accuracy, referencing relevant laws, acts, and landmark judgments when applicable. If legal ambiguities exist, you explain differing interpretations and judicial opinions.
+
+Maintain a formal, professional, and objective tone while avoiding personal opinions. If a query requires legal advice, you clarify that you are providing information and not personalized legal representation.
+
+If a question falls outside Indian law, explicitly state the limitation and, if relevant, provide general comparative legal insights. Avoid making up laws or offering speculative legal interpretations. Answer Everything Precisely and without any uneccessary text except the answer'''
+
+        response=client.models.generate_content(
+            model="gemini-2.0-flash",
+            config=types.GenerateContentConfig(system_instruction=sys_msg),
+            contents=[{"text":text}]
         )
-        return JsonResponse({"Response": response.choices[0].message.content})
+        
+        return JsonResponse({"Response": response.text})
 
 
 def audio_to_text(request):
