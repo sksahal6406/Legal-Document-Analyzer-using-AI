@@ -43,9 +43,14 @@ def generate_speech(text, language):
 
 def translate_text(text, language):
     time.sleep(3)
-    translator = GoogleTranslator(source='auto', target=language)
-    result = translator.translate(text)
-    return result
+    max_chars = 4500
+    chunks = [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
+    translate_texts = []
+    for chunk in chunks:
+        translator = GoogleTranslator(source='auto', target=language)
+        translate_texts.append(translator.translate(chunk))
+    translated_text = ' '.join(translate_texts)
+    return translated_text
 
 def extract_images_from_pdf(pdf_path):
     images = []
@@ -77,7 +82,7 @@ def extract_text_from_pdf(pdf_path):
 
 def optimize_text_using_groq(text):
     model = genai.GenerativeModel("gemini-2.0-flash")
-    prompt = "Correct errors and optimize and remove formatting from this text."
+    prompt = f'While preserving the original line breaks and paragraph structure maintain the existing layout and Return only the extracted text as it is in the PDF: {text}'
     response = model.generate_content([prompt, text])
     return response.text
 
