@@ -21,6 +21,14 @@ import time
 
 genai.configure(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
 
+def extract_text_from_written_pdf(pdf_path):
+    pdf_document = fitz.open(pdf_path)
+    text = ""
+    for page_number in range(len(pdf_document)):
+        page = pdf_document[page_number]
+        text += page.get_text()
+    return text
+
 def generate_speech(text, language):
     filename = 'voice.mp3'
     file_path = os.path.join(settings.MEDIA_ROOT, filename)
@@ -55,9 +63,10 @@ def extract_text_from_image(image):
 
 def extract_text_from_pdf(pdf_path):
     images = extract_images_from_pdf(pdf_path)
-    if not images:
-        return ""
     extracted_text = ""
+    if not images:
+        extracted_text = extract_text_from_written_pdf(pdf_path)
+        return extracted_text
     for image in images:
         extracted_text += extract_text_from_image(image)
     return extracted_text
