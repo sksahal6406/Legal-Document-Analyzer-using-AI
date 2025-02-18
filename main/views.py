@@ -9,7 +9,9 @@ import fitz
 from deep_translator import GoogleTranslator
 from gtts import gTTS
 import google.generativeai as genai
-from google.generativeai import types
+from google import genai as cgenai
+from google.genai import types
+# from google.generativeai import types
 from io import BytesIO
 import speech_recognition as sr
 from django.core.files.storage import default_storage
@@ -19,7 +21,9 @@ import time
 
 ################################################ functions ################################################
 
+client = cgenai.Client(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
 genai.configure(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
+
 
 def extract_text_from_written_pdf(pdf_path):
     pdf_document = fitz.open(pdf_path)
@@ -56,7 +60,7 @@ def extract_images_from_pdf(pdf_path):
     return images
 
 def extract_text_from_image(image):
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     prompt = "Extract and return the text from this image."
     response = model.generate_content([prompt, image])
     return response.text if response.text else "No text extracted."
@@ -79,7 +83,7 @@ def optimize_text_using_groq(text):
 
 def generate_summary(text):
     model = genai.GenerativeModel("gemini-2.0-flash")
-    prompt = "Summarize this text in plain words."
+    prompt = "Summarize this text in words understandable by a layman,do not add anything extra But Do not miss out on any points."
     response = model.generate_content([prompt, text])
     return response.text
 
@@ -120,25 +124,31 @@ def text_to_speech(request):
 
 def ask_prompt(request):
     if request.method == "POST":
-        client = genai.Client(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
         data = json.loads(request.body)
         ptype = data.get("type")
         opt_text = data.get('opt_text')
         text = ""
         if ptype == "Legality":
-            text = "Check the legality of the text and list ambiguities in HTML list tags. If none, return 'None'."
+            text = "Check the legality of the text and list ambiguities in a plain text with breaks and paragraph spacings. If none, return 'None'."
         elif ptype == "Sections":
-            text = "List out all the relevant sections and laws in HTML list tags. If none, return 'None'."
+            text = "List out all the relevant sections and laws.Provide it in a plain text with breaks and paragraph spacings. If none, return 'None'."
         elif ptype == "Errors":
-            text = "Check for grammatical errors and list them in HTML list tags. If none, return 'None'."
+            text = "Check for grammatical errors and provide it in a plain text with breaks and paragraph spacings. If none, return 'None'."
         elif ptype == "Mannual":
             text = data.get('text')
-        sys_msg = f'''You are an expert Indian lawyer, highly knowledgeable in the Indian Constitution, legal statutes, case laws, and judicial practices.Analyse This Data {opt_text} You provide accurate, well-reasoned, and precise legal responses based on the principles of Indian law. Your responses reflect a deep understanding of constitutional provisions, statutory interpretations, procedural laws, and judicial precedents. When answering questions, you ensure clarity, correctness, and legal accuracy, referencing relevant laws, acts, and landmark judgments when applicable. If legal ambiguities exist, you explain differing interpretations and judicial opinions. Maintain a formal, professional, and objective tone while avoiding personal opinions. If a query requires legal advice, you clarify that you are providing information and not personalized legal representation. If a question falls outside Indian law, explicitly state the limitation and, if relevant, provide general comparative legal insights. Avoid making up laws or offering speculative legal interpretations. Answer Everything Precisely and without any uneccessary text except the answer'''
+        sys_msg = f'''You are an expert Indian lawyer, highly knowledgeable in the Indian Constitution, legal statutes, case laws, and judicial practices.Analyse This Data {opt_text} You provide accurate, well-reasoned, and precise legal responses based on the principles of Indian law. Your responses reflect a deep understanding of constitutional provisions, statutory interpretations, procedural laws, and judicial precedents. When answering questions, you ensure clarity, correctness, and legal accuracy, referencing relevant laws, acts, and landmark judgments when applicable. If legal ambiguities exist, you explain differing interpretations and judicial opinions. Maintain a formal, professional, and objective tone while avoiding personal opinions. If a query requires legal advice, you clarify that you are providing information and not personalized legal representation. If a question falls outside Indian law, explicitly state the limitation and, if relevant, provide general comparative legal insights. Avoid making up laws or offering speculative legal interpretations. Answer Everything Precisely and without any uneccessary text except the answer. Provide the answer only in a proper format. '''
         response = client.models.generate_content(
             model="gemini-2.0-flash",
             config=types.GenerateContentConfig(system_instruction=sys_msg),
             contents=[{"text": text}]
         )
+        # model=genai.GenerativeModel("gemini-2.0-flash")
+        # model = genai.GenerativeModel("gemini-2.0-flash")
+        # chat = model.start_chat(history=[
+        #     {"role": "user", "parts": [{"text":sys_msg}]}
+        #     ])
+        
+        print(type(response.text))
         return JsonResponse({"Response": response.text})
 
 def audio_to_text(request):
