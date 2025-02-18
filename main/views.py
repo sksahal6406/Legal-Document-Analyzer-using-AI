@@ -8,18 +8,14 @@ from PIL import Image
 import fitz
 from deep_translator import GoogleTranslator
 from gtts import gTTS
-from google import genai
-from google.genai import types
-from pdf2image import convert_from_path
-import groq
-import time
+import google.generativeai as genai
+from google.generativeai import types
+from io import BytesIO
 import speech_recognition as sr
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from pydub import AudioSegment
-import google.generativeai as genai
-from PIL import Image
-import io
+import time
 
 ################################################ functions ################################################
 
@@ -33,93 +29,46 @@ def generate_speech(text, language):
     tts.save(file_path)
     return filename
 
-
 def translate_text(text, language):
     time.sleep(3)
     translator = GoogleTranslator(source='auto', target=language)
     result = translator.translate(text)
-    print(result)
     return result
 
-
-# def extract_text_from_pdf(pdf_filename):
-#     pdf_path = os.path.join(settings.BASE_DIR, 'media', 'uploads', pdf_filename)
-#     text = ""
-#     doc = fitz.open(pdf_path)  # Open the PDF
-#     for page in doc:
-#         text += page.get_text("text") + "\n"  # Extract text
-#     return text
-
 def extract_images_from_pdf(pdf_path):
-    """Extract images from a PDF file and return a list of PIL images."""
     images = []
     pdf_document = fitz.open(pdf_path)
-
     for page_number in range(len(pdf_document)):
-        for img_index, img in enumerate(pdf_document[page_number].get_images(full=True)):
-            xref = img[0]  # Get XREF (image reference)
+        for img in pdf_document[page_number].get_images(full=True):
+            xref = img[0]
             base_image = pdf_document.extract_image(xref)
             image_bytes = base_image["image"]
-            image = Image.open(io.BytesIO(image_bytes))  # Convert to PIL Image
+            image = Image.open(BytesIO(image_bytes))
             images.append(image)
-    
     return images
 
 def extract_text_from_image(image):
-    """Extract text from an image using Gemini API."""
-    
-    # Load Gemini model
     model = genai.GenerativeModel("gemini-1.5-flash")
-
-    # Provide a text prompt (Gemini requires both text + image)
     prompt = "Extract and return the text from this image."
-
-    # Send request with text and image
     response = model.generate_content([prompt, image])
-
-    # Get extracted text
-    extracted_text = response.text if response.text else "No text extracted."
-    return extracted_text
+    return response.text if response.text else "No text extracted."
 
 def extract_text_from_pdf(pdf_path):
-    """Extract text from images inside a PDF."""
-    
-    images = extract_images_from_pdf(pdf_path)  # Get images from PDF
+    images = extract_images_from_pdf(pdf_path)
     if not images:
-        print("No images found in the PDF.")
-        return
+        return ""
     extracted_text = ""
-    for idx, image in enumerate(images):
-        print(f"\nExtracted Text from Image {idx + 1}:")
-        text = extract_text_from_image(image)
-        extracted_text += text
-    
+    for image in images:
+        extracted_text += extract_text_from_image(image)
     return extracted_text
 
-
 def optimize_text_using_groq(text):
-    # client = groq.Client(api_key="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")
-    # response = client.chat.completions.create(
-    #     model="llama3-8b-8192",
-    #     messages=[
-    #         {"role": "system", "content": "you are an English expert assistant."},
-    #         {"role": "user", "content": f'Correct errors and remove formatting from this text: {text}'},
-    #     ]
-    # )
     model = genai.GenerativeModel("gemini-2.0-flash")
     prompt = "Correct errors and optimize and remove formatting from this text."
     response = model.generate_content([prompt, text])
     return response.text
 
-
 def generate_summary(text):
-    # client = groq.Client(api_key="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")
-    # response = client.chat.completions.create(
-    #     model="llama3-8b-8192",
-    #     messages=[
-    #         {"role": "user", "content": f"Summarize this text in plain words: {text}"},
-    #     ]
-    # )
     model = genai.GenerativeModel("gemini-2.0-flash")
     prompt = "Summarize this text in plain words."
     response = model.generate_content([prompt, text])
@@ -130,7 +79,6 @@ def generate_summary(text):
 def index(request):
     return render(request, 'index.html')
 
-
 def analyze(request):
     if request.method == 'POST' and request.FILES.get('pdf_file'):
         pdf_file = request.FILES['pdf_file']
@@ -139,8 +87,7 @@ def analyze(request):
         os.makedirs(upload_folder, exist_ok=True)
         fs = FileSystemStorage(location=upload_folder)
         filename = fs.save(pdf_file.name, pdf_file)
-        # print(filename)
-        extracted_text = extract_text_from_pdf("media/uploads/" + filename)
+        extracted_text = extract_text_from_pdf(os.path.join("media", "uploads", filename))
         optimized_text = optimize_text_using_groq(extracted_text)
         translated_text = translate_text(optimized_text, language)
         summary_text = generate_summary(optimized_text)
@@ -152,7 +99,6 @@ def analyze(request):
         })
     return render(request, 'analyze.html')
 
-
 def text_to_speech(request):
     if request.method == 'POST':
         data = json.loads(request.body)
@@ -163,11 +109,9 @@ def text_to_speech(request):
         return JsonResponse({'success': True, 'voice_url': file_url})
     return JsonResponse({'success': False, 'message': 'Invalid request'})
 
-
 def ask_prompt(request):
     if request.method == "POST":
-        # client = groq.Client(api_key="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")
-        client=genai.Client(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
+        client = genai.Client(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
         data = json.loads(request.body)
         ptype = data.get("type")
         opt_text = data.get('opt_text')
@@ -178,31 +122,15 @@ def ask_prompt(request):
             text = "List out all the relevant sections and laws in HTML list tags. If none, return 'None'."
         elif ptype == "Errors":
             text = "Check for grammatical errors and list them in HTML list tags. If none, return 'None'."
-        elif ptype=="Mannual":
-            text=data.get('text')
-        # response = client.chat.completions.create(
-        #     model="llama3-8b-8192",
-        #     messages=[
-        #         {"role": "system", "content": f"You are an expert in Indian law. The text is {opt_text}."},
-        #         {"role": "user", "content": text},
-        #     ]
-        # )
-        sys_msg=f'''You are an expert Indian lawyer, highly knowledgeable in the Indian Constitution, legal statutes, case laws, and judicial practices.Analyse This Data {opt_text} You provide accurate, well-reasoned, and precise legal responses based on the principles of Indian law. Your responses reflect a deep understanding of constitutional provisions, statutory interpretations, procedural laws, and judicial precedents.
-
-When answering questions, you ensure clarity, correctness, and legal accuracy, referencing relevant laws, acts, and landmark judgments when applicable. If legal ambiguities exist, you explain differing interpretations and judicial opinions.
-
-Maintain a formal, professional, and objective tone while avoiding personal opinions. If a query requires legal advice, you clarify that you are providing information and not personalized legal representation.
-
-If a question falls outside Indian law, explicitly state the limitation and, if relevant, provide general comparative legal insights. Avoid making up laws or offering speculative legal interpretations. Answer Everything Precisely and without any uneccessary text except the answer'''
-
-        response=client.models.generate_content(
+        elif ptype == "Mannual":
+            text = data.get('text')
+        sys_msg = f'''You are an expert Indian lawyer, highly knowledgeable in the Indian Constitution, legal statutes, case laws, and judicial practices.Analyse This Data {opt_text} You provide accurate, well-reasoned, and precise legal responses based on the principles of Indian law. Your responses reflect a deep understanding of constitutional provisions, statutory interpretations, procedural laws, and judicial precedents. When answering questions, you ensure clarity, correctness, and legal accuracy, referencing relevant laws, acts, and landmark judgments when applicable. If legal ambiguities exist, you explain differing interpretations and judicial opinions. Maintain a formal, professional, and objective tone while avoiding personal opinions. If a query requires legal advice, you clarify that you are providing information and not personalized legal representation. If a question falls outside Indian law, explicitly state the limitation and, if relevant, provide general comparative legal insights. Avoid making up laws or offering speculative legal interpretations. Answer Everything Precisely and without any uneccessary text except the answer'''
+        response = client.models.generate_content(
             model="gemini-2.0-flash",
             config=types.GenerateContentConfig(system_instruction=sys_msg),
-            contents=[{"text":text}]
+            contents=[{"text": text}]
         )
-        
         return JsonResponse({"Response": response.text})
-
 
 def audio_to_text(request):
     if request.method == 'POST' and request.FILES.get('audio_file'):
