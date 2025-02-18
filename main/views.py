@@ -39,9 +39,14 @@ def generate_speech(text, language):
 
 def translate_text(text, language):
     time.sleep(3)
-    translator = GoogleTranslator(source='auto', target=language)
-    result = translator.translate(text)
-    return result
+    max_chars = 4500
+    chunks = [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
+    translate_texts = []
+    for chunk in chunks:
+        translator = GoogleTranslator(source='auto', target=language)
+        translate_texts.append(translator.translate(chunk))
+    translated_text = ' '.join(translate_texts)
+    return translated_text
 
 def extract_images_from_pdf(pdf_path):
     images = []
@@ -73,13 +78,13 @@ def extract_text_from_pdf(pdf_path):
 
 def optimize_text_using_groq(text):
     model = genai.GenerativeModel("gemini-2.0-flash")
-    prompt = "Correct errors and optimize and remove formatting from this text."
+    prompt = f'While preserving the original line breaks and paragraph structure maintain the existing layout and Return only the extracted text as it is in the PDF: {text}'
     response = model.generate_content([prompt, text])
     return response.text
 
 def generate_summary(text):
     model = genai.GenerativeModel("gemini-2.0-flash")
-    prompt = "Summarize this text in plain words."
+    prompt = f'Summarize the following text in plain, concise words. Do not include any technical jargon or complex phrasing from the text. Provide a simple and clear overview of the main points:{text}'
     response = model.generate_content([prompt, text])
     return response.text
 
@@ -120,7 +125,6 @@ def text_to_speech(request):
 
 def ask_prompt(request):
     if request.method == "POST":
-        client = genai.Client(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
         data = json.loads(request.body)
         ptype = data.get("type")
         opt_text = data.get('opt_text')
@@ -134,11 +138,8 @@ def ask_prompt(request):
         elif ptype == "Mannual":
             text = data.get('text')
         sys_msg = f'''You are an expert Indian lawyer, highly knowledgeable in the Indian Constitution, legal statutes, case laws, and judicial practices.Analyse This Data {opt_text} You provide accurate, well-reasoned, and precise legal responses based on the principles of Indian law. Your responses reflect a deep understanding of constitutional provisions, statutory interpretations, procedural laws, and judicial precedents. When answering questions, you ensure clarity, correctness, and legal accuracy, referencing relevant laws, acts, and landmark judgments when applicable. If legal ambiguities exist, you explain differing interpretations and judicial opinions. Maintain a formal, professional, and objective tone while avoiding personal opinions. If a query requires legal advice, you clarify that you are providing information and not personalized legal representation. If a question falls outside Indian law, explicitly state the limitation and, if relevant, provide general comparative legal insights. Avoid making up laws or offering speculative legal interpretations. Answer Everything Precisely and without any uneccessary text except the answer'''
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            config=types.GenerateContentConfig(system_instruction=sys_msg),
-            contents=[{"text": text}]
-        )
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        response = model.generate_content([sys_msg, text])
         return JsonResponse({"Response": response.text})
 
 def audio_to_text(request):
