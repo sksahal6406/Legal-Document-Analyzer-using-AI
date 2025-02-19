@@ -9,8 +9,8 @@ import fitz
 from deep_translator import GoogleTranslator
 from gtts import gTTS
 import google.generativeai as genai
-from google import genai as cgenai
-from google.genai import types
+# from google import genai as cgenai
+# from google.genai import types
 # from google.generativeai import types
 from io import BytesIO
 import speech_recognition as sr
@@ -21,7 +21,7 @@ import time
 
 ################################################ functions ################################################
 
-client = cgenai.Client(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
+# client = cgenai.Client(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
 genai.configure(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
 
 
@@ -142,18 +142,19 @@ def ask_prompt(request):
         elif ptype == "Mannual":
             text = data.get('text')
         sys_msg = f'''You are an expert Indian lawyer, highly knowledgeable in the Indian Constitution, legal statutes, case laws, and judicial practices.Analyse This Data {opt_text} You provide accurate, well-reasoned, and precise legal responses based on the principles of Indian law. Your responses reflect a deep understanding of constitutional provisions, statutory interpretations, procedural laws, and judicial precedents. When answering questions, you ensure clarity, correctness, and legal accuracy, referencing relevant laws, acts, and landmark judgments when applicable. If legal ambiguities exist, you explain differing interpretations and judicial opinions. Maintain a formal, professional, and objective tone while avoiding personal opinions. If a query requires legal advice, you clarify that you are providing information and not personalized legal representation. If a question falls outside Indian law, explicitly state the limitation and, if relevant, provide general comparative legal insights. Avoid making up laws or offering speculative legal interpretations. Answer Everything Precisely and without any uneccessary text except the answer. Provide the answer only in a proper format. '''
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            config=types.GenerateContentConfig(system_instruction=sys_msg),
+        # response = client.models.generate_content(
+        #     model="gemini-2.0-flash",
+        #     config=types.GenerateContentConfig(system_instruction=sys_msg),
+        #     contents=[{"text": text}]
+        # )
+        model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash",
+            system_instruction=sys_msg
+        )
+        response = model.generate_content(
             contents=[{"text": text}]
         )
-        # model=genai.GenerativeModel("gemini-2.0-flash")
-        # model = genai.GenerativeModel("gemini-2.0-flash")
-        # chat = model.start_chat(history=[
-        #     {"role": "user", "parts": [{"text":sys_msg}]}
-        #     ])
-        
-        print(type(response.text))
+        print(response.text)
         return JsonResponse({"Response": response.text})
 
 def audio_to_text(request):
