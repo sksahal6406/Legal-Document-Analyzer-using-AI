@@ -119,7 +119,7 @@ def summarize_chunk(chunk):
     response = model.generate_content([prompt, chunk])
     return response.text
 
-def generate_summary(text, max_chars=4000):
+def generate_summary(text, max_chars=3000):
     chunks = [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
 
     # Use ThreadPoolExecutor for parallel processing
@@ -128,6 +128,27 @@ def generate_summary(text, max_chars=4000):
 
     return ' '.join(summaries)
 
+def summarize_large_text(text, chunk_size=3000):
+    # model = genai.GenerativeModel('gemini-pro')
+
+    # Split text into chunks
+    chunks = [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
+
+    # Function to process each chunk in parallel
+    def summarize_chunk(chunk):
+        prompt = f"Summarize the following text concisely:\n\n{chunk}"
+        response = model.generate_content(prompt, stream=True)
+        return "".join(chunk.text for chunk in response)  # Streaming response
+
+    # Use ThreadPoolExecutor to process chunks in parallel
+    with ThreadPoolExecutor() as executor:
+        summaries = list(executor.map(summarize_chunk, chunks))
+
+    # Merge all summaries
+    final_prompt = f"Combine these summaries into a single concise summary:\n\n{'\n'.join(summaries)}"
+    final_summary = model.generate_content(final_prompt, stream=True)
+
+    return "".join(chunk.text for chunk in final_summary)
 ################################################## views ###################################################
 
 def index(request):
@@ -146,7 +167,7 @@ def analyze(request):
         # optimized_text = optimize_text_using_groq(extracted_text)
         translated_text = translate_text(extracted_text, language)
         print(translate_text)
-        summary_text = generate_summary(extracted_text)
+        summary_text = summarize_large_text(extracted_text)
         print(summary_text)
         translated_summary = translate_text(summary_text, language)
         return render(request, 'analyze.html', {
