@@ -18,6 +18,9 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from pydub import AudioSegment
 import time
+from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
+
 
 ################################################ functions ################################################
 
@@ -25,13 +28,18 @@ client = cgenai.Client(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
 genai.configure(api_key="AIzaSyBu2ilS5D1MG84uTVZCKNCzntqjk3Pym0w")
 
 
+# def extract_text_from_written_pdf(pdf_path):
+#     pdf_document = fitz.open(pdf_path)
+#     text = ""
+#     for page_number in range(len(pdf_document)):
+#         page = pdf_document[page_number]
+#         text += page.get_text()
+#     return text
 def extract_text_from_written_pdf(pdf_path):
     pdf_document = fitz.open(pdf_path)
-    text = ""
-    for page_number in range(len(pdf_document)):
-        page = pdf_document[page_number]
-        text += page.get_text()
-    return text
+    with ThreadPoolExecutor() as executor:
+        text_list = list(executor.map(lambda page: page.get_text("text"), pdf_document))
+    return "".join(text_list)
 
 def generate_speech(text, language):
     filename = 'voice.mp3'
@@ -41,16 +49,30 @@ def generate_speech(text, language):
     tts.save(file_path)
     return filename
 
+# def translate_text(text, language):
+#     time.sleep(3)
+#     max_chars = 4500
+#     chunks = [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
+#     translate_texts = []
+#     for chunk in chunks:
+#         translator = GoogleTranslator(source='auto', target=language)
+#         translate_texts.append(translator.translate(chunk))
+#     translated_text = ' '.join(translate_texts)
+#     return translated_text
+
+
+def translate_chunk(chunk, language):
+    translator = GoogleTranslator(source='auto', target=language)
+    return translator.translate(chunk)
+
 def translate_text(text, language):
-    time.sleep(3)
     max_chars = 4500
     chunks = [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
-    translate_texts = []
-    for chunk in chunks:
-        translator = GoogleTranslator(source='auto', target=language)
-        translate_texts.append(translator.translate(chunk))
-    translated_text = ' '.join(translate_texts)
-    return translated_text
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        translated_chunks = list(executor.map(lambda chunk: translate_chunk(chunk, language), chunks))
+
+    return ' '.join(translated_chunks)
 
 def extract_images_from_pdf(pdf_path):
     images = []
@@ -86,11 +108,25 @@ def optimize_text_using_groq(text):
     response = model.generate_content([prompt, text])
     return response.text
 
-def generate_summary(text):
-    model = genai.GenerativeModel("gemini-2.0-flash")
-    prompt = "Summarize this text in words understandable by a layman,do not add anything extra But Do not miss out on any points."
-    response = model.generate_content([prompt, text])
+# def generate_summary(text):
+#     model = genai.GenerativeModel("gemini-2.0-flash")
+#     prompt = "Summarize this text in words understandable by a layman,do not add anything extra But Do not miss out on any points."
+#     response = model.generate_content([prompt, text])
+#     return response.text
+model = genai.GenerativeModel("gemini-2.0-flash")
+def summarize_chunk(chunk):
+    prompt = "Summarize this text in words understandable by a layman. Do not add anything extra, but do not miss out on any points."
+    response = model.generate_content([prompt, chunk])
     return response.text
+
+def generate_summary(text, max_chars=4000):
+    chunks = [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
+
+    # Use ThreadPoolExecutor for parallel processing
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        summaries = list(executor.map(summarize_chunk, chunks))
+
+    return ' '.join(summaries)
 
 ################################################## views ###################################################
 
@@ -106,12 +142,15 @@ def analyze(request):
         fs = FileSystemStorage(location=upload_folder)
         filename = fs.save(pdf_file.name, pdf_file)
         extracted_text = extract_text_from_pdf(os.path.join("media", "uploads", filename))
-        optimized_text = optimize_text_using_groq(extracted_text)
-        translated_text = translate_text(optimized_text, language)
-        summary_text = generate_summary(optimized_text)
+        print(extracted_text)
+        # optimized_text = optimize_text_using_groq(extracted_text)
+        translated_text = translate_text(extracted_text, language)
+        print(translate_text)
+        summary_text = generate_summary(extracted_text)
+        print(summary_text)
         translated_summary = translate_text(summary_text, language)
         return render(request, 'analyze.html', {
-            'extracted_text': optimized_text,
+            'extracted_text': extracted_text,
             'translated_text': translated_text,
             'summary_text': translated_summary
         })
