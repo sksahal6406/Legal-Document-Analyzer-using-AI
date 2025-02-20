@@ -39,6 +39,8 @@ def extract_text_from_written_pdf(pdf_path):
     pdf_document = fitz.open(pdf_path)
     with ThreadPoolExecutor() as executor:
         text_list = list(executor.map(lambda page: page.get_text("text"), pdf_document))
+
+    os.remove(pdf_path)
     return "".join(text_list)
 
 def generate_speech(text, language):

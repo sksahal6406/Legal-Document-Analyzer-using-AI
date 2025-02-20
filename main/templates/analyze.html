@@ -82,8 +82,8 @@
             })
             .then(response => response.json())
             .then(data => {
-                if (data.voice_url) {
-                    audioPlayer.src = data.voice_url;
+                if (data.task_id) {
+                    audioPlayer.src = data.task_id;
                     audioPlayer.play();
                 } else {
                     alert("Error: Audio file not received");
