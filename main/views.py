@@ -40,7 +40,7 @@ def extract_text_from_written_pdf(pdf_path):
     with ThreadPoolExecutor() as executor:
         text_list = list(executor.map(lambda page: page.get_text("text"), pdf_document))
 
-    os.remove(pdf_path)
+    # os.remove(pdf_path)
     return "".join(text_list)
 
 def generate_speech(text, language):
@@ -78,31 +78,34 @@ def translate_text(text, language):
 
 def extract_images_from_pdf(pdf_path):
     images = []
-    pdf_document = fitz.open(pdf_path)
-    for page_number in range(len(pdf_document)):
-        for img in pdf_document[page_number].get_images(full=True):
-            xref = img[0]
-            base_image = pdf_document.extract_image(xref)
-            image_bytes = base_image["image"]
-            image = Image.open(BytesIO(image_bytes))
-            images.append(image)
+    with fitz.open(pdf_path) as pdf_document:
+        images = [
+            Image.open(BytesIO(pdf_document.extract_image(img[0])["image"]))
+            for page in pdf_document
+            for img in page.get_images(full=True)
+        ]
     return images
 
 def extract_text_from_image(image):
     model = genai.GenerativeModel("gemini-2.0-flash")
     prompt = "Extract and return the text from this image."
     response = model.generate_content([prompt, image])
-    return response.text if response.text else "No text extracted."
+    return response.text if response.text else ""
 
 def extract_text_from_pdf(pdf_path):
     images = extract_images_from_pdf(pdf_path)
-    extracted_text = ""
+    
+    # If no images, process as a written PDF
     if not images:
-        extracted_text = extract_text_from_written_pdf(pdf_path)
-        return extracted_text
-    for image in images:
-        extracted_text += extract_text_from_image(image)
-    return extracted_text
+        return extract_text_from_written_pdf(pdf_path)  # Assuming this function is defined elsewhere
+
+    # Process images concurrently
+    extracted_texts = []
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = executor.map(extract_text_from_image, images)
+        extracted_texts.extend(results)
+    
+    return "\n".join(extracted_texts)
 
 def optimize_text_using_groq(text):
     model = genai.GenerativeModel("gemini-2.0-flash")
@@ -147,7 +150,7 @@ def summarize_large_text(text, chunk_size=3000):
         summaries = list(executor.map(summarize_chunk, chunks))
 
     # Merge all summaries
-    final_prompt = f"Combine these summaries into a single concise summary:\n\n{'\n'.join(summaries)}"
+    final_prompt = "Combine these summaries into a single concise summary:\n\n" + '\n'.join(summaries)
     final_summary = model.generate_content(final_prompt, stream=True)
 
     return "".join(chunk.text for chunk in final_summary)
